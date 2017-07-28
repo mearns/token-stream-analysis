@@ -131,8 +131,8 @@ A queue is implemented as follows:
 *   The output of Action C is the output of the entity.
 
 ```
-I *--()--x A    // Indicates that an arbtirary number of channels collectively
-                // labeled "I" are each connected as inhibitors to action A.
+> *--()--x A    // Indicates that an arbtirary number of input channels are each
+                // connected as inhibitors to action A.
                 // The delay of the channels is not unspecified.
 A --(N)--x B    // Indicates that an output channel from action A connects
                 // as an inhibitor to action B, with a channel delay of N.
@@ -140,6 +140,8 @@ A --(N)--x C
 B --(N+K)-- C   // Indicates that an output channel from Action B connects
                 // as a non-inhibiting input to action C with a channel delay which
                 // is no less than N.
+C *--()-- >     // Indicates that any number of output channels can be attached to
+                // action C.
 ```
 
 Analysis as follows:
@@ -150,13 +152,29 @@ Analysis as follows:
 *   At time N, channels AxB and AxC are charged, putting actions A and C into
     an inhibited state. Action B is not _free_ (because BC is charging), so it cannot
     _fire_. Action C is not yet _activated_ because BC is not yet charged.
-*   K time later, channel BC is charged, which _activates_ action C, although it is
+*   At time N+K, channel BC is charged, which _activates_ action C, although it is
     still _inhibited_ by AxC. Action C is also _free_, so it _consumes_ tokens
     off of AxC and BC. Consuming _BC_ frees up action B, which makes action B
     _consuming_, so it consumes the token from AxB. Since action C also consumed
     a token from AxC, this leaves action A _free_, and since it's always _activated_
-    and is not currently inhibited, action A _fires_ in the same instance, chargin
-    up AxB and AxC.
-*   In the next instance? Same instance? TK <-- Action B is now _free_ and uninhibited, so it fires, charging channel BC.
+    and is not currently inhibited, action A _fires_ in the same instance, charging
+    up AxB and AxC. Charging of both channels will complete at time 2N+K.
+*   In the same instance, Action B fires because it is now _free_ and _uninhibited_;
+    this leads to channel BC being charged. Charge will complete at time 2N+2K).
+*   At time 2N+K, channels AxB and AxC are charged, inhibiting actions B and C.
+    Action B is still charging (channel BC), and action C is unactivated (input BC
+    is charging).
+*   At time 2N+2K, channel BC is charged, which makes action C _activated_, but it is
+    still _inhibited_ by AxC, so it cannot fire. This brings us back to the exact
+    same state that we were in at time N+K: channels AxB, AxC, and BC are all charged.
+    So if no additional tokens come into the system through I, we will continue through
+    this loop, and the queue will not output any tokens.
+*   At some point, one of the input channels to the queue becomes charged. This causes
+    Action A to become inhibited. The next time that channel BC becomes charged, leading
+    Action C to consume a token off of AxC and causing B to consume a token off of
+    AxB and immediately fire a token onto BC to start charging it, Action A becomes
+    _free_ but _inhibited_. With no non-inhibiting inputs, Action A is always _activated_,
+    so this causes Action A to be _consuming_, and it consumes the token off of the input.
+    TK: ??? How does it cause action C to fire?
 
 
