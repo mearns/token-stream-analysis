@@ -16,10 +16,11 @@ class Channel {
   }
 
   getState() {
-    if (!this._bounded) {
-      return `${this._state}*`;
+    switch (this._type) {
+      case CHANNEL_BOUND: return this._state;
+      case CHANNEL_UNBOUND_OUT: return `${this._state}>`;
+      case CHANNEL_UNBOUND_IN: return `${this._state}<`;
     }
-    return this._state;
   }
 
   discharge() {
@@ -173,33 +174,50 @@ function getPossibleNextChannels(channels) {
   }
 }
 
-function analyzeFromState(knownStates, actionFactory, prevState, channels) {
+function analyzeFromState(knownStates, actionFactories, prevState, channels) {
   const transientState = getSystemState(channels);
-  const action = actionFactory.getAction(channels);
-  const fireCount = action.evaluate();
+  const actions = actionFactories.map(factory => factory.getAction(channels));
+  const fireCounts = actions.map((a) => a.evaluate());
   const settledState = getSystemState(channels);
-  console.log(`${prevState} --(${transientState} / ${fireCount})--> ${settledState}`);
+  console.log(`${prevState} --(${transientState} / ${fireCounts})--> ${settledState}`);
 
   if (!knownStates[settledState]) {
     knownStates[settledState] = true;
     getPossibleNextChannels(channels).forEach((newChannels) => {
       if (getSystemState(newChannels) !== settledState) {
-        analyzeFromState(knownStates, actionFactory, settledState, newChannels);
+        analyzeFromState(knownStates, actionFactories, settledState, newChannels);
       }
     });
   }
 }
 
 (function main() {
-  const ch_AxA = new Channel()
-  const ch_AO = new Channel({type: CHANNEL_UNBOUND_OUT});
-  const channels = [ch_AxA, ch_AO];
-  const act_A = new ActionFactory({
-    inhibitors: [0],
-    outputs: [0, 1]
+  const ID = new Channel({type: CHANNEL_UNBOUND_IN});
+  const DL = new Channel();
+  const DR = new Channel();
+  const RxL = new Channel();
+  const LxR = new Channel();
+  const LO = new Channel({type: CHANNEL_UNBOUND_OUT});
+  const RP = new Channel({type: CHANNEL_UNBOUND_OUT});
+
+  const channels = [ID, DL, DR, RxL, LxR, LO, RP];
+  const D = new ActionFactory({
+    inputs: [0],
+    outputs: [1, 2]
+  });
+  const L = new ActionFactory({
+    inputs: [1],
+    inhibitors: [3],
+    outputs: [4, 5]
+  });
+  const R = new ActionFactory({
+    inputs: [2],
+    inhibitors: [4],
+    outputs: [3, 6]
   });
 
   const knownStates = {}
-  analyzeFromState(knownStates, act_A, '<init>', channels);
+  analyzeFromState(knownStates, [D, L, R], '<init>', channels);
+  console.log(`Found ${Object.keys(knownStates).length} reachable states`);
 
 })();
